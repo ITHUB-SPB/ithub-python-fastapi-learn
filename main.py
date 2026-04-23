@@ -1,10 +1,12 @@
 import sqlite3
 import typing
 from fastapi import FastAPI, HTTPException, Depends
+from sqlalchemy.orm import Session
 
-from schema import RecordCreate, Record
-from database import select_records, select_record_by_id, insert_record
-from connection import get_db
+from schema import RecordCreate, Record, UserResponse, UserCreate
+from database import select_records, select_record_by_id, insert_record, insert_user
+from connection import get_db, get_db_sa, engine
+from model import Base
 
 app = FastAPI(debug=True, title="Курсы", description="API")
 
@@ -20,6 +22,8 @@ def startup_event():
     )''')
     connection.commit()
     connection.close()
+
+    Base.metadata.create_all(bind=engine)
 
 
 @app.get(
@@ -63,3 +67,19 @@ def post_record(
         payload: RecordCreate
 ) -> Record:
     return insert_record(cursor=cursor, payload=payload)
+
+
+@app.post(
+    '/users',
+    response_model=UserResponse,
+    summary='Создание аккаунта',
+    status_code=201
+)
+def post_user(
+    session: typing.Annotated[Session, Depends(get_db_sa)],
+    payload: UserCreate
+) -> UserResponse:
+    try:
+        return insert_user(session=session, payload=payload)
+    except Exception:
+        raise HTTPException(status_code=409, detail="Invalid payload")
