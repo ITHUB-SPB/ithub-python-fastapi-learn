@@ -1,10 +1,16 @@
 import sqlite3
 import typing
+
 from fastapi import HTTPException, Depends, APIRouter
+from fastapi.security import OAuth2PasswordBearer
 
 from schema import RecordCreate, Record
 from database.service_records import select_records, select_record_by_id, insert_record
+from database.service_auth import decode_token
+from database.service_users import get_user_by_username
 from connection import get_db
+
+oauth2 = OAuth2PasswordBearer('/users/login')
 
 records_router = APIRouter()
 
@@ -45,7 +51,16 @@ def get_record(
     status_code=201
 )
 def post_record(
-        cursor: typing.Annotated[sqlite3.Cursor, Depends(get_db)],
-        payload: RecordCreate
+    cursor: typing.Annotated[sqlite3.Cursor, Depends(get_db)],
+    payload: RecordCreate,
+    token: typing.Annotated[oauth2, Depends()]
 ) -> Record:
+    username = decode_token(token).get('username')
+
+    if not username:
+        raise HTTPException(status_code=401, detail="Отсутствуют пользовательские данные")
+
+    if not get_user_by_username(username):
+        raise HTTPException(status_code=401, detail="Отсутствуют пользовательские данные")
+
     return insert_record(cursor=cursor, payload=payload)
