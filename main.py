@@ -1,14 +1,16 @@
 import sqlite3
-import typing
-from fastapi import FastAPI, HTTPException, Depends
-from sqlalchemy.orm import Session
+from fastapi import FastAPI
 
-from schema import RecordCreate, Record, UserResponse, UserCreate
-from database import select_records, select_record_by_id, insert_record, insert_user
-from connection import get_db, get_db_sa, engine
+from connection import engine
 from model import Base
 
+from api.api_records import records_router
+from api.api_users import users_router
+
 app = FastAPI(debug=True, title="Курсы", description="API")
+
+app.include_router(records_router)
+app.include_router(users_router)
 
 @app.on_event("startup")
 def startup_event():
@@ -25,61 +27,3 @@ def startup_event():
 
     Base.metadata.create_all(bind=engine)
 
-
-@app.get(
-    '/records',
-    response_model=list[Record],
-    summary='Все записи'
-)
-def get_records(
-    cursor: typing.Annotated[sqlite3.Cursor, Depends(get_db)],
-    search: str | None = None,
-) -> list[Record]:
-    return select_records(cursor=cursor, search=search)
-
-
-@app.get(
-    '/records/{record_id}',
-    response_model=Record,
-    summary='Запись по ID',
-    responses={ 404: { "description": "Запись не найдена" } }
-)
-def get_record(
-    cursor: typing.Annotated[sqlite3.Cursor, Depends(get_db)],
-    record_id: int
-) -> Record:
-    record = select_record_by_id(cursor=cursor, record_id=record_id)
-
-    if not record:
-        raise HTTPException(404, detail=f'Запись с id={record_id} не найдена')
-
-    return record
-
-
-@app.post(
-    '/records',
-    response_model=Record,
-    summary='Создание записи',
-    status_code=201
-)
-def post_record(
-        cursor: typing.Annotated[sqlite3.Cursor, Depends(get_db)],
-        payload: RecordCreate
-) -> Record:
-    return insert_record(cursor=cursor, payload=payload)
-
-
-@app.post(
-    '/users',
-    response_model=UserResponse,
-    summary='Создание аккаунта',
-    status_code=201
-)
-def post_user(
-    session: typing.Annotated[Session, Depends(get_db_sa)],
-    payload: UserCreate
-) -> UserResponse:
-    try:
-        return insert_user(session=session, payload=payload)
-    except Exception:
-        raise HTTPException(status_code=409, detail="Invalid payload")
