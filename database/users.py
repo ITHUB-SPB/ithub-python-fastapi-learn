@@ -1,8 +1,8 @@
-from sqlalchemy import VARCHAR
+from sqlalchemy import VARCHAR, select
 from sqlalchemy.orm import Mapped, mapped_column, Session
 from sqlalchemy.exc import IntegrityError, OperationalError
 
-from schema import UserNew
+from schema import UserNew, UserPublic
 from database import Base
 
 
@@ -28,3 +28,16 @@ def insert_user(
     except (IntegrityError, OperationalError) as exc:
         session.rollback()
         raise exc
+
+
+def select_user_by_username(
+    session: Session,
+    username: str
+) -> UserPublic | None:
+    statement = select(User).where(User.username == username)
+    user = session.execute(statement).scalar_one_or_none()
+
+    if not user:
+        return None
+
+    return UserPublic(id=user.id, username=user.username)
