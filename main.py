@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 
 import sqlite3
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from connection import engine
 from model import Base
@@ -27,6 +28,14 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(debug=True, title="Курсы", description="API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"]
+)
 
 app.include_router(records_router)
 app.include_router(users_router)
