@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 import sqlite3
 from fastapi import FastAPI
 
@@ -7,13 +9,9 @@ from model import Base
 from api.api_records import records_router
 from api.api_users import users_router
 
-app = FastAPI(debug=True, title="Курсы", description="API")
 
-app.include_router(records_router)
-app.include_router(users_router)
-
-@app.on_event("startup")
-def startup_event():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     connection = sqlite3.connect('database.sqlite', check_same_thread=False)
     cursor = connection.cursor()
     cursor.execute('''
@@ -26,4 +24,9 @@ def startup_event():
     connection.close()
 
     Base.metadata.create_all(bind=engine)
+    yield
 
+app = FastAPI(debug=True, title="Курсы", description="API")
+
+app.include_router(records_router)
+app.include_router(users_router)
